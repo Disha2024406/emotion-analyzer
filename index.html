@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EmotionAI — Real-Time Claude Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════ -->
+<header>
+  <div class="wrap">
+    <div class="hdr">
+      <div class="logo">
+        <div class="logo-orb">🧠</div>
+        EmotionAI
+      </div>
+      <div class="live-dot" id="server-status" style="color:var(--accent2);border-color:rgba(160,149,255,0.3);background:rgba(124,111,252,0.1)">
+        Powered by Groq
+      </div>
+      <nav class="nav">
+        <button class="nav-btn on" onclick="goPage('detect',this)">Detect</button>
+        <button class="nav-btn"   onclick="goPage('dash',this)">Dashboard</button>
+        <button class="nav-btn"   onclick="goPage('api',this)">API Docs</button>
+      </nav>
+    </div>
+  </div>
+</header>
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE: DETECT
+════════════════════════════════════════════ -->
+<div id="page-detect" class="page on">
+<div class="wrap">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">🧠 Dataset-Trained · Offline-First · Groq Fallback</div>
+    <h1>Real-Time Emotion<br/>Detection</h1>
+    <p>Powered by Claude AI — type, speak, or upload text for instant emotion analysis with streaming responses.</p>
+  </div>
+
+  <!-- ── Engine Toggle ──────────────────────────── -->
+  <div class="engine-toggle">
+    <div class="engine-label">⚙️ Detection Engine</div>
+    <div class="engine-btns">
+      <button id="btn-engine-local" class="engine-btn" onclick="switchEngine('local')">
+        🧠 Local Model <span class="engine-tag">offline · instant</span>
+      </button>
+      <button id="btn-engine-groq" class="engine-btn" onclick="switchEngine('groq')">
+        ⚡ Groq API <span class="engine-tag">cloud · streaming</span>
+      </button>
+    </div>
+    <div id="model-status" class="model-status">Loading local model…</div>
+  </div>
+
+  <!-- ── API Key Banner (hidden by default, shown when Groq selected) ── -->
+  <div class="api-key-banner" id="api-key-banner" style="display:none">
+    <label for="api-key-inp">🔑 Groq API Key</label>
+    <input type="password" id="api-key-inp" class="api-key-input" placeholder="gsk_…" autocomplete="off"/>
+    <button class="api-key-save" onclick="saveApiKey()">Save Key</button>
+    <span class="api-key-status" id="api-key-status">Enter your Groq key</span>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="mode-tabs">
+    <button class="mode-tab on" onclick="setMode('type',this)">
+      <span class="icon">⌨️</span>Live Typing
+    </button>
+    <button class="mode-tab" onclick="setMode('mic',this)">
+      <span class="icon">🎙️</span>Microphone
+    </button>
+    <button class="mode-tab" onclick="setMode('file',this)">
+      <span class="icon">📂</span>Upload File
+    </button>
+  </div>
+
+  <div class="detect-grid">
+
+    <!-- ── LEFT: input panel ─────────────────── -->
+    <div>
+
+      <!-- MODE: TYPING -->
+      <div id="mode-type" class="card">
+        <div class="card-label">⌨️ Live Typing — Claude analyzes as you type</div>
+        <div class="textarea-wrap">
+          <textarea
+            id="live-ta"
+            class="live-ta"
+            placeholder="Start typing how you feel…&#10;&#10;e.g. 'I'm so excited about my new job!'"
+            maxlength="3000"
+            oninput="onType()"
+          ></textarea>
+        </div>
+        <div class="ta-footer">
+          <div class="typing-status">
+            <div class="typing-dot" id="typing-dot"></div>
+            <span id="typing-label">Start typing to detect emotion</span>
+          </div>
+          <div class="char-ct"><span id="char-ct">0</span> / 3000</div>
+        </div>
+
+        <!-- Quick examples -->
+        <div class="examples-wrap">
+          <div class="card-label">💡 Quick Examples</div>
+          <div class="examples-grid" id="ex-grid"></div>
+        </div>
+      </div>
+
+      <!-- MODE: MICROPHONE -->
+      <div id="mode-mic" class="card" style="display:none">
+        <div class="card-label">🎙️ Microphone — speak and detect</div>
+        <div id="mic-no-support" class="mic-support-warn" style="display:none">
+          ⚠️ Your browser does not support the Web Speech API.<br/>
+          Try Google Chrome or Microsoft Edge.
+        </div>
+        <div id="mic-ui" class="mic-center">
+          <div style="position:relative">
+            <button class="mic-btn" id="mic-btn" onclick="toggleMic()">🎙️
+              <div class="mic-rings" id="mic-rings"></div>
+            </button>
+          </div>
+          <div class="mic-status" id="mic-status">Click the mic to start recording</div>
+          <div class="mic-transcript" id="mic-transcript">
+            <span style="color:var(--muted)">Your speech will appear here…</span>
+          </div>
+          <button
+            id="mic-analyze-btn"
+            class="mode-tab on"
+            style="display:none;max-width:200px;margin:0 auto"
+            onclick="analyzeMicText()"
+          >
+            ✨ Analyze with Groq
+          </button>
+        </div>
+      </div>
+
+      <!-- MODE: FILE -->
+      <div id="mode-file" class="card" style="display:none">
+        <div class="card-label">📂 Upload Text File</div>
+        <div
+          class="drop-zone"
+          id="drop-zone"
+          onclick="document.getElementById('file-inp').click()"
+          ondragover="doDragOver(event)"
+          ondragleave="doDragLeave(event)"
+          ondrop="doDrop(event)"
+        >
+          <div class="drop-icon">📄</div>
+          <div><strong>Click to upload</strong> or drag & drop</div>
+          <div class="drop-hint">Accepts .txt files — one sentence per line (max 50)</div>
+        </div>
+        <input type="file" id="file-inp" accept=".txt" onchange="doFile(event)"/>
+        <div class="file-results" id="file-results"></div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ── RIGHT: result panel ──────────────── -->
+    <div class="result-panel">
+      <div class="card" id="result-card">
+
+        <!-- Placeholder -->
+        <div class="result-placeholder" id="res-placeholder">
+          <div class="ph-icon">🔍</div>
+          <div>Emotion result will appear here</div>
+          <div style="font-size:.78rem">Type something or click an example</div>
+        </div>
+
+        <!-- Filled result -->
+        <div id="res-filled" style="display:none">
+          <div class="emotion-hero" id="emo-hero">
+            <span class="emo-emoji" id="emo-emoji">😄</span>
+            <div class="emo-name"  id="emo-name">Joy</div>
+            <div class="emo-conf"  id="emo-conf">95% confident</div>
+            <div class="emo-latency" id="emo-latency"></div>
+            <!-- Streaming indicator -->
+            <div class="streaming-badge" id="streaming-badge">
+              <div class="stream-dot"></div>
+              <div class="stream-dot"></div>
+              <div class="stream-dot"></div>
+              <span>Claude is analyzing…</span>
+            </div>
+          </div>
+          <div class="card-label">Probability Breakdown</div>
+          <div class="prob-list" id="prob-list"></div>
+        </div>
+
+      </div>
+    </div><!-- /result-panel -->
+
+  </div><!-- /detect-grid -->
+
+  <!-- Live Timeline -->
+  <div class="timeline-strip">
+    <div class="timeline-label">🕐 Session Timeline — last 40 detections</div>
+    <div class="timeline-dots" id="timeline">
+      <span class="timeline-empty">No detections yet</span>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+</div><!-- /page-detect -->
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE: DASHBOARD
+════════════════════════════════════════════ -->
+<div id="page-dash" class="page">
+<div class="wrap">
+  <h2 style="margin-bottom:6px;font-size:1.5rem;font-weight:800">📊 Analytics Dashboard</h2>
+  <p style="color:var(--muted);margin-bottom:28px">Session statistics from your Claude-powered analyses.</p>
+
+  <div class="dash-kpi">
+    <div class="kpi">
+      <div class="kpi-num" id="kpi-total">0</div>
+      <div class="kpi-lbl">Total Analyses</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" id="kpi-conf">—</div>
+      <div class="kpi-lbl">Avg Confidence</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" id="kpi-top">—</div>
+      <div class="kpi-lbl">Top Emotion</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-label">Emotion Distribution</div>
+    <div id="dist-bars">
+      <span style="color:var(--muted);font-size:.88rem">Analyze some text to see statistics.</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-label">Recent Detections</div>
+    <div class="recent-list" id="recent-list">
+      <span style="color:var(--muted);font-size:.88rem">No recent data.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">⚡ Model Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:.88rem">
+      <div><span style="color:var(--muted)">Provider</span><br/><strong>Groq</strong></div>
+      <div><span style="color:var(--muted)">Model</span><br/><strong>Llama 3.3 70B</strong></div>
+      <div><span style="color:var(--muted)">Mode</span><br/><strong>Streaming SSE</strong></div>
+      <div><span style="color:var(--muted)">Debounce</span><br/><strong>600 ms</strong></div>
+      <div><span style="color:var(--muted)">Max File Lines</span><br/><strong>50</strong></div>
+      <div><span style="color:var(--muted)">Emotions</span><br/><strong>6 classes</strong></div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE: API DOCS
+════════════════════════════════════════════ -->
+<div id="page-api" class="page">
+<div class="wrap">
+  <h2 style="margin-bottom:6px;font-size:1.5rem;font-weight:800">📡 How It Works</h2>
+  <p style="color:var(--muted);margin-bottom:28px">This app calls the Groq API directly from your browser — no backend needed.</p>
+
+  <div class="card api-card">
+    <div class="card-label">Architecture</div>
+    <div style="font-size:.88rem;line-height:1.8;color:var(--muted)">
+      No backend server needed. Your API key is stored in <strong style="color:var(--text)">sessionStorage</strong>
+      (cleared when you close the tab). All requests go directly from your browser to
+      <strong style="color:var(--text)">api.groq.com</strong> — Groq supports CORS from browsers natively,
+      so no special headers are required.
+    </div>
+  </div>
+
+  <div class="card api-card">
+    <div class="card-label">File Structure</div>
+    <div class="code-block"><span class="cm"># Project layout</span>
+emotionai/
+├── <span class="st">index.html</span>         <span class="cm"># Main HTML shell</span>
+├── css/
+│   └── <span class="st">styles.css</span>     <span class="cm"># All design tokens & component styles</span>
+└── js/
+    ├── <span class="st">config.js</span>      <span class="cm"># Emotion data, constants, system prompt, model</span>
+    ├── <span class="st">api.js</span>         <span class="cm"># Groq API calls (streaming SSE)</span>
+    ├── <span class="st">ui.js</span>          <span class="cm"># DOM rendering helpers</span>
+    ├── <span class="st">mic.js</span>         <span class="cm"># Web Speech API integration</span>
+    └── <span class="st">app.js</span>         <span class="cm"># Main entry point, event wiring</span></div>
+  </div>
+
+  <div class="card api-card">
+    <div class="card-label">Groq API Call (Streaming)</div>
+    <div class="code-block"><span class="kw">const</span> res = <span class="kw">await</span> fetch(<span class="st">'https://api.groq.com/openai/v1/chat/completions'</span>, {
+  method: <span class="st">'POST'</span>,
+  headers: {
+    <span class="st">'Authorization'</span>: <span class="st">`Bearer ${YOUR_GROQ_KEY}`</span>,
+    <span class="st">'Content-Type'</span>:  <span class="st">'application/json'</span>,
+  },
+  body: JSON.stringify({
+    model:       <span class="st">'llama-3.3-70b-versatile'</span>,
+    max_tokens:  <span class="nu">300</span>,
+    temperature: <span class="nu">0.1</span>,
+    stream:      <span class="nu">true</span>,
+    messages: [
+      { role: <span class="st">'system'</span>, content: SYSTEM_PROMPT },
+      { role: <span class="st">'user'</span>,   content: text },
+    ],
+  })
+});
+
+<span class="cm">// Stream delta format (OpenAI-compatible):</span>
+<span class="cm">// parsed.choices[0].delta.content</span></div>
+  </div>
+
+  <div class="card api-card">
+    <div class="card-label">Swap Model — edit js/config.js</div>
+    <div class="code-block"><span class="cm">// Available Groq models:</span>
+<span class="kw">export const</span> MODEL = <span class="st">'llama-3.3-70b-versatile'</span>;  <span class="cm">// ← best quality</span>
+<span class="cm">// export const MODEL = 'llama-3.1-8b-instant';      // ← fastest</span>
+<span class="cm">// export const MODEL = 'mixtral-8x7b-32768';        // ← good balance</span></div>
+  </div>
+
+  <div class="card api-card">
+    <div class="card-label">⚠️ Security Notes</div>
+    <div style="font-size:.88rem;line-height:1.8;color:var(--muted)">
+      • Your API key is stored only in <strong style="color:var(--text)">sessionStorage</strong> — never sent to any third-party server.<br/>
+      • Keys are cleared when you close the browser tab.<br/>
+      • For production, proxy requests through your own backend to keep the key secret.<br/>
+      • Get your free Groq key at <strong style="color:var(--text)">console.groq.com</strong>.
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ── ES Module entry point ──────────────── -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
