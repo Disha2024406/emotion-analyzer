@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/styles.css"/>
+<!-- Chart.js for emotion analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -24,9 +26,9 @@
         Powered by Groq
       </div>
       <nav class="nav">
-        <button class="nav-btn on" onclick="goPage('detect',this)">Detect</button>
-        <button class="nav-btn"   onclick="goPage('dash',this)">Dashboard</button>
-        <button class="nav-btn"   onclick="goPage('api',this)">API Docs</button>
+        <button class="nav-btn on" data-page="detect">Detect</button>
+        <button class="nav-btn" data-page="dash">Dashboard</button>
+        <button class="nav-btn" data-page="api">API Docs</button>
       </nav>
     </div>
   </div>
@@ -50,10 +52,10 @@
   <div class="engine-toggle">
     <div class="engine-label">⚙️ Detection Engine</div>
     <div class="engine-btns">
-      <button id="btn-engine-local" class="engine-btn" onclick="switchEngine('local')">
+      <button id="btn-engine-local" class="engine-btn">
         🧠 Local Model <span class="engine-tag">offline · instant</span>
       </button>
-      <button id="btn-engine-groq" class="engine-btn" onclick="switchEngine('groq')">
+      <button id="btn-engine-groq" class="engine-btn">
         ⚡ Groq API <span class="engine-tag">cloud · streaming</span>
       </button>
     </div>
@@ -64,20 +66,23 @@
   <div class="api-key-banner" id="api-key-banner" style="display:none">
     <label for="api-key-inp">🔑 Groq API Key</label>
     <input type="password" id="api-key-inp" class="api-key-input" placeholder="gsk_…" autocomplete="off"/>
-    <button class="api-key-save" onclick="saveApiKey()">Save Key</button>
+    <button class="api-key-save" id="api-key-save-btn">Save Key</button>
     <span class="api-key-status" id="api-key-status">Enter your Groq key</span>
   </div>
 
   <!-- Mode Tabs -->
   <div class="mode-tabs">
-    <button class="mode-tab on" onclick="setMode('type',this)">
+    <button class="mode-tab on" data-mode="type">
       <span class="icon">⌨️</span>Live Typing
     </button>
-    <button class="mode-tab" onclick="setMode('mic',this)">
+    <button class="mode-tab" data-mode="mic">
       <span class="icon">🎙️</span>Microphone
     </button>
-    <button class="mode-tab" onclick="setMode('file',this)">
+    <button class="mode-tab" data-mode="file">
       <span class="icon">📂</span>Upload File
+    </button>
+    <button class="mode-tab" data-mode="webcam">
+      <span class="icon">📷</span>Webcam
     </button>
   </div>
 
@@ -95,7 +100,7 @@
             class="live-ta"
             placeholder="Start typing how you feel…&#10;&#10;e.g. 'I'm so excited about my new job!'"
             maxlength="3000"
-            oninput="onType()"
+           
           ></textarea>
         </div>
         <div class="ta-footer">
@@ -122,7 +127,7 @@
         </div>
         <div id="mic-ui" class="mic-center">
           <div style="position:relative">
-            <button class="mic-btn" id="mic-btn" onclick="toggleMic()">🎙️
+            <button class="mic-btn" id="mic-btn">🎙️
               <div class="mic-rings" id="mic-rings"></div>
             </button>
           </div>
@@ -134,30 +139,118 @@
             id="mic-analyze-btn"
             class="mode-tab on"
             style="display:none;max-width:200px;margin:0 auto"
-            onclick="analyzeMicText()"
+           
           >
             ✨ Analyze with Groq
           </button>
         </div>
       </div>
 
-      <!-- MODE: FILE -->
+      <!-- MODE: FILE (text + image sub-tabs) -->
       <div id="mode-file" class="card" style="display:none">
-        <div class="card-label">📂 Upload Text File</div>
-        <div
-          class="drop-zone"
-          id="drop-zone"
-          onclick="document.getElementById('file-inp').click()"
-          ondragover="doDragOver(event)"
-          ondragleave="doDragLeave(event)"
-          ondrop="doDrop(event)"
-        >
-          <div class="drop-icon">📄</div>
-          <div><strong>Click to upload</strong> or drag & drop</div>
-          <div class="drop-hint">Accepts .txt files — one sentence per line (max 50)</div>
+        <div class="card-label">📂 Upload File</div>
+
+        <!-- Sub-tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab on" id="sub-text-btn">📄 Text File</button>
+          <button class="sub-tab"    id="sub-img-btn" >🖼️ Image</button>
         </div>
-        <input type="file" id="file-inp" accept=".txt" onchange="doFile(event)"/>
-        <div class="file-results" id="file-results"></div>
+
+        <!-- TEXT sub-mode -->
+        <div id="sub-text">
+          <div
+            class="drop-zone"
+            id="drop-zone"
+           
+           
+           
+           
+          >
+            <div class="drop-icon">📄</div>
+            <div><strong>Click to upload</strong> or drag & drop</div>
+            <div class="drop-hint">Accepts .txt files — one sentence per line (max 50)</div>
+          </div>
+          <input type="file" id="file-inp" accept=".txt"/>
+          <div class="file-results" id="file-results"></div>
+        </div>
+
+        <!-- IMAGE sub-mode -->
+        <div id="sub-image" style="display:none">
+          <div class="vision-notice">
+            🔑 Requires <strong>Groq API key</strong> — uses Llama 4 Vision to analyze facial expressions.
+          </div>
+          <div
+            class="drop-zone"
+            id="img-drop-zone"
+           
+           
+           
+           
+          >
+            <div class="drop-icon">🖼️</div>
+            <div><strong>Click to upload image</strong> or drag & drop</div>
+            <div class="drop-hint">Accepts JPG, PNG, WEBP — faces detected automatically</div>
+          </div>
+          <input type="file" id="img-inp" accept="image/jpeg,image/png,image/webp"/>
+
+          <!-- Image preview + result -->
+          <div id="img-preview-wrap" style="display:none;margin-top:18px">
+            <div class="img-preview-grid">
+              <div class="img-preview-box">
+                <img id="img-preview" src="" alt="preview" style="width:100%;border-radius:10px;display:block"/>
+              </div>
+              <div id="img-result-panel" class="img-result-panel">
+                <div style="color:var(--muted);font-size:.88rem;text-align:center;padding:20px">
+                  Analyzing with Groq Vision…
+                </div>
+              </div>
+            </div>
+            <div id="img-description" class="img-description"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE: WEBCAM -->
+      <div id="mode-webcam" class="card" style="display:none">
+        <div class="card-label">📷 Webcam — live facial emotion detection</div>
+
+        <div class="webcam-status-row">
+          <div id="webcam-status-text" class="webcam-status-text">Click Start to enable camera</div>
+          <div id="webcam-face-count" class="webcam-face-badge" style="display:none"></div>
+        </div>
+
+        <!-- Loading bar for face-api -->
+        <div id="faceapi-loader" class="faceapi-loader" style="display:none">
+          <div class="faceapi-bar"><div class="faceapi-fill" id="faceapi-fill"></div></div>
+          <div id="faceapi-msg" style="font-size:.78rem;color:var(--muted);margin-top:6px">Loading…</div>
+        </div>
+
+        <!-- Video container -->
+        <div class="webcam-container" id="webcam-container">
+          <video id="webcam-video" class="webcam-video" muted playsinline></video>
+          <canvas id="webcam-overlay" class="webcam-overlay"></canvas>
+          <div class="webcam-placeholder" id="webcam-placeholder">
+            <div style="font-size:3rem">📷</div>
+            <div>Camera preview will appear here</div>
+          </div>
+        </div>
+
+        <div class="webcam-controls">
+          <button class="webcam-btn start" id="webcam-start-btn">
+            ▶ Start Camera
+          </button>
+          <button class="webcam-btn stop" id="webcam-stop-btn" style="display:none">
+            ⏹ Stop
+          </button>
+          <button class="webcam-btn capture" id="webcam-capture-btn" style="display:none">
+            📸 Capture & Analyze
+          </button>
+        </div>
+
+        <div class="webcam-notice">
+          <strong>Local detection</strong> (face-api.js) runs in your browser — no data sent anywhere.<br/>
+          Use <strong>Capture & Analyze</strong> for a detailed Groq Vision analysis of the current frame.
+        </div>
       </div>
 
     </div><!-- /left -->
@@ -202,6 +295,23 @@
     <div class="timeline-label">🕐 Session Timeline — last 40 detections</div>
     <div class="timeline-dots" id="timeline">
       <span class="timeline-empty">No detections yet</span>
+    </div>
+  </div>
+
+  <!-- ── Emotion Analytics Chart ───────────────── -->
+  <div class="card analytics-card">
+    <div class="analytics-header">
+      <div>
+        <div class="card-label">📊 Emotion Analytics</div>
+        <div id="analytics-total" class="analytics-total">0 total detections</div>
+      </div>
+      <button class="analytics-clear-btn" id="analytics-clear-btn">🗑 Clear Data</button>
+    </div>
+    <div class="analytics-chart-wrap">
+      <canvas id="emotion-chart"></canvas>
+    </div>
+    <div class="analytics-footer">
+      Data persists across sessions via localStorage
     </div>
   </div>
 
@@ -343,6 +453,8 @@ emotionai/
 
 <!-- ── ES Module entry point ──────────────── -->
 <script type="module" src="js/app.js"></script>
+<!-- ── Analytics (non-module, uses global Chart.js) ── -->
+<script type="module" src="js/analytics-boot.js"></script>
 
 </body>
 </html>

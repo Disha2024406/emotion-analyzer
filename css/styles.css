@@ -462,3 +462,50 @@ header {
   font-size: .78rem; color: var(--muted);
   white-space: nowrap; min-width: 200px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ANALYTICS CHART CARD
+═══════════════════════════════════════════════════════════ */
+.analytics-card {
+  margin-top: 20px;
+}
+.analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.analytics-total {
+  font-size: .78rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.analytics-clear-btn {
+  background: rgba(255,77,77,0.1);
+  border: 1px solid rgba(255,77,77,0.25);
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--trans);
+  white-space: nowrap;
+}
+.analytics-clear-btn:hover {
+  background: rgba(255,77,77,0.2);
+  border-color: rgba(255,77,77,0.5);
+}
+.analytics-chart-wrap {
+  position: relative;
+  height: 240px;
+  width: 100%;
+}
+.analytics-footer {
+  margin-top: 12px;
+  font-size: .72rem;
+  color: var(--muted);
+  text-align: right;
+}

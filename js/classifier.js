@@ -19,18 +19,40 @@ export async function loadModel(onProgress = null) {
 
   try {
     onProgress?.('Loading emotion model…');
-    const res = await fetch('./model/emotion_model.json');
-    if (!res.ok) throw new Error(`Model fetch failed: ${res.status}`);
+
+    // Try both path variants to handle different server setups
+    let res;
+    const paths = ['./model/emotion_model.json', 'model/emotion_model.json', '/model/emotion_model.json'];
+    let lastErr;
+
+    for (const path of paths) {
+      try {
+        console.log(`[classifier] Trying: ${path}`);
+        res = await fetch(path);
+        if (res.ok) { console.log(`[classifier] Loaded from: ${path}`); break; }
+        lastErr = new Error(`HTTP ${res.status} at ${path}`);
+        res = null;
+      } catch (e) {
+        lastErr = e;
+        res = null;
+      }
+    }
+
+    if (!res) throw lastErr || new Error('All model paths failed');
+
+    onProgress?.('Parsing model data…');
     _model = await res.json();
     _ready = true;
     onProgress?.('Model ready ✓');
     console.log(
-      `[classifier] Loaded | vocab=${Object.keys(_model.vocab).length}` +
+      `[classifier] Ready | vocab=${Object.keys(_model.vocab).length}` +
       ` | classes=${_model.classes} | accuracy=${_model.accuracy}%`
     );
   } catch (err) {
-    console.error('[classifier] Failed to load model:', err);
-    onProgress?.('Model load failed');
+    console.error('[classifier] Load failed:', err);
+    console.error('[classifier] Make sure emotion_model.json is in the model/ folder');
+    console.error('[classifier] and you are running via http:// not file://');
+    onProgress?.(`Model load failed: ${err.message}`);
     throw err;
   } finally {
     _loading = false;
