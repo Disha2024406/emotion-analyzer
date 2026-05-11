@@ -81,9 +81,6 @@
     <button class="mode-tab" data-mode="file">
       <span class="icon">📂</span>Upload File
     </button>
-    <button class="mode-tab" data-mode="webcam">
-      <span class="icon">📷</span>Webcam
-    </button>
   </div>
 
   <div class="detect-grid">
@@ -93,7 +90,7 @@
 
       <!-- MODE: TYPING -->
       <div id="mode-type" class="card">
-        <div class="card-label">⌨️ Live Typing — Claude analyzes as you type</div>
+        <div class="card-label">⌨️ Live Typing — detects emotion as you type</div>
         <div class="textarea-wrap">
           <textarea
             id="live-ta"
@@ -210,48 +207,6 @@
         </div>
       </div>
 
-      <!-- MODE: WEBCAM -->
-      <div id="mode-webcam" class="card" style="display:none">
-        <div class="card-label">📷 Webcam — live facial emotion detection</div>
-
-        <div class="webcam-status-row">
-          <div id="webcam-status-text" class="webcam-status-text">Click Start to enable camera</div>
-          <div id="webcam-face-count" class="webcam-face-badge" style="display:none"></div>
-        </div>
-
-        <!-- Loading bar for face-api -->
-        <div id="faceapi-loader" class="faceapi-loader" style="display:none">
-          <div class="faceapi-bar"><div class="faceapi-fill" id="faceapi-fill"></div></div>
-          <div id="faceapi-msg" style="font-size:.78rem;color:var(--muted);margin-top:6px">Loading…</div>
-        </div>
-
-        <!-- Video container -->
-        <div class="webcam-container" id="webcam-container">
-          <video id="webcam-video" class="webcam-video" muted playsinline></video>
-          <canvas id="webcam-overlay" class="webcam-overlay"></canvas>
-          <div class="webcam-placeholder" id="webcam-placeholder">
-            <div style="font-size:3rem">📷</div>
-            <div>Camera preview will appear here</div>
-          </div>
-        </div>
-
-        <div class="webcam-controls">
-          <button class="webcam-btn start" id="webcam-start-btn">
-            ▶ Start Camera
-          </button>
-          <button class="webcam-btn stop" id="webcam-stop-btn" style="display:none">
-            ⏹ Stop
-          </button>
-          <button class="webcam-btn capture" id="webcam-capture-btn" style="display:none">
-            📸 Capture & Analyze
-          </button>
-        </div>
-
-        <div class="webcam-notice">
-          <strong>Local detection</strong> (face-api.js) runs in your browser — no data sent anywhere.<br/>
-          Use <strong>Capture & Analyze</strong> for a detailed Groq Vision analysis of the current frame.
-        </div>
-      </div>
 
     </div><!-- /left -->
 
@@ -273,6 +228,7 @@
             <div class="emo-name"  id="emo-name">Joy</div>
             <div class="emo-conf"  id="emo-conf">95% confident</div>
             <div class="emo-latency" id="emo-latency"></div>
+            <div class="negation-hint" id="negation-hint" style="display:none"></div>
             <!-- Streaming indicator -->
             <div class="streaming-badge" id="streaming-badge">
               <div class="stream-dot"></div>
@@ -289,6 +245,96 @@
     </div><!-- /result-panel -->
 
   </div><!-- /detect-grid -->
+
+
+  <!-- ══════════════════════════════════════════════
+       DEEP ANALYSIS SECTION (27-emotion, multi-label)
+  ══════════════════════════════════════════════ -->
+  <div class="deep-section" id="deep-section">
+
+    <div class="deep-header">
+      <div>
+        <div class="deep-title">🔬 Deep Emotion Analysis</div>
+        <div class="deep-subtitle">27-emotion multi-label · GoEmotions taxonomy · Psychological insight</div>
+      </div>
+      <button class="deep-analyze-btn" id="deep-analyze-btn">
+        ✨ Deep Analyze
+      </button>
+    </div>
+
+    <!-- Result panel — hidden until analyzed -->
+    <div id="deep-result" style="display:none">
+
+      <!-- Risk banner — shown only when risk is high/critical -->
+      <div id="deep-risk-banner" class="deep-risk-banner" style="display:none"></div>
+
+      <!-- Top row: valence/arousal + insight -->
+      <div class="deep-top-row">
+
+        <!-- Valence / Arousal gauges -->
+        <div class="deep-gauges card">
+          <div class="card-label">Emotional Dimensions</div>
+          <div class="gauge-row">
+            <span class="gauge-label">Valence</span>
+            <div class="gauge-track">
+              <div class="gauge-fill valence-fill" id="valence-fill"></div>
+              <div class="gauge-center-line"></div>
+            </div>
+            <span class="gauge-val" id="valence-val"></span>
+          </div>
+          <div class="gauge-caption">← Negative &nbsp;&nbsp;&nbsp; Positive →</div>
+          <div class="gauge-row" style="margin-top:14px">
+            <span class="gauge-label">Arousal</span>
+            <div class="gauge-track">
+              <div class="gauge-fill arousal-fill" id="arousal-fill"></div>
+            </div>
+            <span class="gauge-val" id="arousal-val"></span>
+          </div>
+          <div class="gauge-caption">← Calm &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Excited →</div>
+          <div style="margin-top:16px">
+            <div class="card-label">Ambiguity</div>
+            <div class="ambiguity-row">
+              <div class="ambiguity-bar-wrap">
+                <div class="ambiguity-bar" id="ambiguity-bar"></div>
+              </div>
+              <span class="gauge-val" id="ambiguity-val"></span>
+            </div>
+            <div class="gauge-caption">← Clear &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Mixed →</div>
+          </div>
+        </div>
+
+        <!-- Psychological insight -->
+        <div class="deep-insight card">
+          <div class="card-label">🧠 Psychological Insight</div>
+          <div class="insight-text" id="insight-text"></div>
+          <div class="insight-meta">
+            <span id="insight-context"></span>
+            <span id="insight-latency"></span>
+          </div>
+          <!-- Primary emotions badges -->
+          <div class="card-label" style="margin-top:16px">Primary Emotions</div>
+          <div class="primary-badges" id="primary-badges"></div>
+        </div>
+
+      </div>
+
+      <!-- 27-emotion heatmap -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-label">📊 27-Emotion Breakdown</div>
+        <div class="emotion-groups" id="emotion-groups"></div>
+      </div>
+
+    </div><!-- /deep-result -->
+
+    <!-- Placeholder -->
+    <div class="deep-placeholder" id="deep-placeholder">
+      <div style="font-size:2.5rem">🔬</div>
+      <div>Type something above then click <strong>Deep Analyze</strong></div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:4px">Requires Groq API key · Uses 27-emotion GoEmotions taxonomy</div>
+    </div>
+
+  </div>
+  <!-- /deep-section -->
 
   <!-- Live Timeline -->
   <div class="timeline-strip">

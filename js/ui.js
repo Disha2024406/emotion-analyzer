@@ -41,6 +41,17 @@ export function renderResult(r) {
   document.getElementById('emo-conf').textContent  = `${r.confidence}% confident`;
   document.getElementById('emo-latency').textContent = `Analyzed in ${r.latency_ms}ms`;
 
+  // Show negation hint when local model suppressed an emotion
+  const negHint = document.getElementById('negation-hint');
+  if (negHint) {
+    if (r.negated && r.negated.length > 0) {
+      negHint.textContent = `\u26a1 Negation detected \u2014 suppressed: ${r.negated.join(', ')}`;
+      negHint.style.display = 'block';
+    } else {
+      negHint.style.display = 'none';
+    }
+  }
+
   // Probability bars
   const list = document.getElementById('prob-list');
   list.innerHTML = '';
