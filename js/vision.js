@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  vision.js — Image upload + Webcam face emotion detection
-//  Image analysis  → Groq Vision API (llama-3.2-11b-vision)
+//  Image analysis  → Groq Vision API (qwen/qwen3.8-27b, preview model)
 //  Webcam stream   → face-api.js (runs fully in-browser)
 // ═══════════════════════════════════════════════════════════
 
@@ -8,7 +8,10 @@ import { EMOTION_COLORS, EMOTION_EMOJI } from './config.js';
 import { getApiKey, hasApiKey } from './api.js';
 
 const GROQ_VISION_API = 'https://api.groq.com/openai/v1/chat/completions';
-const VISION_MODEL    = 'meta-llama/llama-4-scout-17b-16e-instruct';
+// Checked against console.groq.com/docs/models on 2 Oct 2026. This is a Groq
+// "Preview" model and may be discontinued at short notice, so recheck there.
+const VISION_MODEL        = 'qwen/qwen3.8-27b';
+const VISION_EXTRA_PARAMS = { reasoning_effort: 'none' };   // no reasoning tokens
 
 // face-api.js CDN (tiny models, runs in browser)
 const FACEAPI_CDN  = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
@@ -47,7 +50,8 @@ export async function analyzeImageFile(file) {
 
   const body = {
     model: VISION_MODEL,
-    max_tokens: 300,
+    max_completion_tokens: 1024,   // was 300
+    ...VISION_EXTRA_PARAMS,
     messages: [{
       role: 'user',
       content: [
@@ -79,25 +83,51 @@ If no face is visible, set emotion to "neutral" and confidence to 0.`,
     }],
   };
 
-  const t0  = performance.now();
-  const res = await fetch(GROQ_VISION_API, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const t0 = performance.now();
+  let res;
+  try {
+    res = await fetch(GROQ_VISION_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getApiKey()}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('Could not reach Groq. Check your connection.');
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Vision API error ${res.status}`);
+    const msg = err?.error?.message || '';
+    if (res.status === 401) throw new Error('Groq rejected the API key. Re-enter a valid key and try again.');
+    if (res.status === 429) throw new Error('Groq rate limit reached. Wait a moment and retry.');
+    if (res.status === 404 || /does not exist|decommission|do not have access/i.test(msg)) {
+      throw new Error('Groq vision model unavailable. Update VISION_MODEL in js/vision.js (see console.groq.com/docs/models).');
+    }
+    throw new Error(`Vision API error ${res.status}${msg ? ': ' + msg : ''}`);
   }
 
   const data    = await res.json();
-  const rawJson = data.choices?.[0]?.message?.content || '';
+  const choice  = data.choices?.[0];
+  const rawJson = choice?.message?.content || '';
+
+  // Strip markdown fences, then take the outermost {...}
   const cleaned = rawJson.replace(/```json|```/g, '').trim();
-  const result  = JSON.parse(cleaned);
+  const start = cleaned.indexOf('{');
+  const end   = cleaned.lastIndexOf('}');
+  let result;
+  try {
+    if (start < 0 || end < start) throw new Error('no json');
+    result = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new Error(
+      choice?.finish_reason === 'length'
+        ? 'The model response was cut off before it finished. Please try again.'
+        : 'The vision model did not return valid JSON. Please try again.'
+    );
+  }
 
   result.latency_ms = Math.round(performance.now() - t0);
   result.emoji      = EMOTION_EMOJI[result.emotion] || '🤔';
