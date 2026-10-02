@@ -5,9 +5,9 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getApiKey, hasApiKey } from './api.js';
+import { MODEL, MODEL_EXTRA_PARAMS } from './config.js';
 
 const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL    = 'llama-3.3-70b-versatile';
 
 // ── GoEmotions 27-class taxonomy with metadata ─────────────
 export const EMOTIONS_27 = {
@@ -119,6 +119,17 @@ Respond ONLY with this JSON structure:
   "sentiment": "<positive|negative|neutral|mixed|conflict_oriented|politically_charged>"
 }`;
 
+// ── Readable Groq error messages ──────────────────────────
+function _groqErrorMessage(status, apiMessage) {
+  const msg = apiMessage || '';
+  if (status === 401) return 'Groq rejected the API key. Re-enter a valid key and try again.';
+  if (status === 429) return 'Groq rate limit reached. Wait a moment and retry.';
+  if (status === 404 || /does not exist|decommission|do not have access/i.test(msg)) {
+    return 'Groq model unavailable. Update MODEL in js/config.js (see console.groq.com/docs/models).';
+  }
+  return `Groq error ${status}${msg ? ': ' + msg : ''}`;
+}
+
 // ═══════════════════════════════════════════════════════════
 //  Main export — deep analysis
 // ═══════════════════════════════════════════════════════════
@@ -128,32 +139,53 @@ export async function deepAnalyze(text) {
 
   const t0 = performance.now();
 
-  const res = await fetch(GROQ_API, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 800,
-      temperature: 0.1,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: `Analyze this text:\n"${text}"` },
-      ],
-    }),
-  });
+  let res;
+  try {
+    res = await fetch(GROQ_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getApiKey()}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_completion_tokens: 2048,   // was 800; reasoning tokens share this budget
+        temperature: 0.1,
+        ...MODEL_EXTRA_PARAMS,         // reasoning_effort / include_reasoning (config.js)
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user',   content: `Analyze this text:\n"${text}"` },
+        ],
+      }),
+    });
+  } catch {
+    throw new Error('Could not reach Groq. Check your connection.');
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Groq error ${res.status}`);
+    throw new Error(_groqErrorMessage(res.status, err?.error?.message));
   }
 
   const data    = await res.json();
-  const rawJson = data.choices?.[0]?.message?.content || '';
+  const choice  = data.choices?.[0];
+  const rawJson = choice?.message?.content || '';
+
+  // Strip markdown fences, then take the outermost {...}
   const cleaned = rawJson.replace(/```json|```/g, '').trim();
-  const result  = JSON.parse(cleaned);
+  const start = cleaned.indexOf('{');
+  const end   = cleaned.lastIndexOf('}');
+  let result;
+  try {
+    if (start < 0 || end < start) throw new Error('no json');
+    result = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new Error(
+      choice?.finish_reason === 'length'
+        ? 'The model response was cut off before it finished. Please try again.'
+        : 'The model did not return valid JSON. Please try again.'
+    );
+  }
 
   result.latency_ms = Math.round(performance.now() - t0);
   result.text       = text;
