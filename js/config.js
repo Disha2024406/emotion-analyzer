@@ -2,6 +2,8 @@
 //  config.js — shared constants & emotion data
 // ═══════════════════════════════════════════════════════════
 
+export const MODEL_EXTRA_PARAMS = { reasoning_effort: 'low', include_reasoning: false };
+
 export const EMOTION_COLORS = {
   joy:      '#FFD700',
   sadness:  '#4f8fff',
