@@ -2,8 +2,6 @@
 //  config.js — shared constants & emotion data
 // ═══════════════════════════════════════════════════════════
 
-export const MODEL_EXTRA_PARAMS = { reasoning_effort: 'low', include_reasoning: false };
-
 export const EMOTION_COLORS = {
   joy:      '#FFD700',
   sadness:  '#4f8fff',
@@ -45,11 +43,21 @@ export const EXAMPLES = [
 // Groq API — OpenAI-compatible endpoint
 export const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Available fast Groq models (pick one):
-//   'llama-3.3-70b-versatile'   ← best quality
-//   'llama-3.1-8b-instant'      ← fastest / cheapest
-//   'mixtral-8x7b-32768'        ← good balance
+// Groq model IDs, checked against console.groq.com/docs/models and
+// /docs/deprecations on 2 Oct 2026. Groq retires models often, so recheck there.
+//   Text:   'openai/gpt-oss-120b' (Production) or 'openai/gpt-oss-20b' (faster/cheaper)
+//   Vision: 'qwen/qwen3.8-27b' (Preview, may be discontinued at short notice)
+// No longer available on free/developer keys: llama-3.3-70b-versatile,
+// llama-3.1-8b-instant, llama-4-scout, mixtral-8x7b-32768, qwen3.6-27b
 export const MODEL = 'openai/gpt-oss-120b';
+// Extra params these reasoning models need. If MODEL is swapped to a
+// non-reasoning model, set this to {}.
+export const MODEL_EXTRA_PARAMS = { reasoning_effort: 'low', include_reasoning: false };
+
+// Image (facial expression) analysis uses its own model
+export const VISION_MODEL = 'qwen/qwen3.8-27b';
+export const VISION_EXTRA_PARAMS = { reasoning_effort: 'none' };
+
 // System prompt for emotion detection
 export const SYSTEM_PROMPT = `You are an emotion detection AI. Analyze the emotional content of text and respond ONLY with a JSON object in this exact format (no markdown, no explanation):
 
