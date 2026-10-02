@@ -47,8 +47,7 @@ export const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
 //   'llama-3.3-70b-versatile'   ← best quality
 //   'llama-3.1-8b-instant'      ← fastest / cheapest
 //   'mixtral-8x7b-32768'        ← good balance
-export const MODEL = 'llama-3.3-70b-versatile';
-
+export const MODEL = 'openai/gpt-oss-120b';
 // System prompt for emotion detection
 export const SYSTEM_PROMPT = `You are an emotion detection AI. Analyze the emotional content of text and respond ONLY with a JSON object in this exact format (no markdown, no explanation):
 
